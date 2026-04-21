@@ -75,29 +75,3 @@ fn mirror_horizontal(buf: &mut [u8], width: usize, height: usize) {
 
     }
 }
-
-
-fn mirror_both_image(rgba: &RgbaImage) -> RgbaImage {
-    let row = rgba.to_vec();
-
-    let data = vec![1,2,3,4,5,6,7,8];
-
-    let mut parts: Vec<&[u8]> = data.chunks(4).collect();
-
-    parts.reverse();
-
-    println!("{:?}", parts);
-
-    let pixels = rgba.pixels();
-
-    // Rgba([83, 174, 246, 205])
-    // Rgba([82, 175, 245, 205])
-
-
-    // for pixel in pixels {
-    //     println!("_{} {} {} {}_", pixel[0], pixel[1], pixel[2], pixel[3]);
-    // }
-    println!("end");
-
-    rgba.clone()
-}
