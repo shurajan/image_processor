@@ -1,5 +1,4 @@
 use clap::Parser;
-use image::GenericImageView;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -10,10 +9,28 @@ use std::path::PathBuf;
     long_about = None,
     arg_required_else_help = true
 )]
+
+//run --package ip --bin ip -- -i tests/data/2.png
 struct Args {
     /// Input file path
-    #[arg(short, long, value_name = "FILE")]
+    #[arg(short = 'i', long, value_name = "FILE")]
     input: PathBuf,
+
+    /// Output file path
+    #[arg(short = 'o', long, value_name = "FILE")]
+    output: PathBuf,
+
+    /// Plugin name
+    #[arg(short = 'p', long, value_name = "PLUGIN_NAME")]
+    plugin: String,
+
+    /// Path to file with the plugins' params
+    #[arg(short = 'd', long, value_name = "FILE")]
+    pub params: PathBuf,
+
+    /// Path to plugins directory
+    #[arg(short = 'l', long, default_value = "target/debug", value_name = "DIR")]
+    pub plugin_path: PathBuf,
 }
 
 fn main() -> anyhow::Result<()> {
