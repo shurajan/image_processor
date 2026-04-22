@@ -47,20 +47,20 @@ fn main() -> anyhow::Result<()> {
 
     let (width, height) = rgba.dimensions();
     mirror_horizontal(rgba_h.as_mut(), width as usize, height as usize);
-    rgba_h.save("hor.png")?;
+    rgba_h.save("tests/output/test_hor.png")?;
 
     mirror_vertical(rgba_v.as_mut(), width as usize, height as usize);
-    rgba_v.save("ver.png")?;
+    rgba_v.save("tests/output/test_ver.png")?;
 
     mirror_horizontal(rgba_a.as_mut(), width as usize, height as usize);
     mirror_vertical(rgba_a.as_mut(), width as usize, height as usize);
-    rgba_a.save("all.png")?;
+    rgba_a.save("tests/output/test_all.png")?;
 
     blur_gauss(rgba_bg.as_mut(), width as usize, height as usize);
-    rgba_bg.save("blur_gauss.png")?;
+    rgba_bg.save("tests/output/test_blur_gauss.png")?;
 
     blur_box(rgba_bb.as_mut(), width as usize, height as usize);
-    rgba_bb.save("blur_box.png")?;
+    rgba_bb.save("tests/output/test_blur_box.png")?;
 
     Ok(())
 }
