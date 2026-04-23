@@ -7,3 +7,4 @@ edition = "2024"
 clap.workspace = true
 anyhow.workspace = true
 image.workspace = true
+libloading = "0.9"

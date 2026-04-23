@@ -1,5 +1,9 @@
+mod plugin;
+
+use std::ffi::CString;
 use clap::Parser;
 use std::path::PathBuf;
+use crate::plugin::Plugin;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -38,32 +42,44 @@ fn main() -> anyhow::Result<()> {
 
     let img = image::open(&args.input)?;
     let rgba = img.to_rgba8();
-
     let mut rgba_h = rgba.clone();
-    let mut rgba_v = rgba.clone();
-    let mut rgba_a = rgba.clone();
-    let mut rgba_bg = rgba.clone();
-    let mut rgba_bb = rgba.clone();
-
     let (width, height) = rgba.dimensions();
-    mirror_horizontal(rgba_h.as_mut(), width as usize, height as usize);
-    rgba_h.save("tests/output/test_hor.png")?;
 
-    mirror_vertical(rgba_v.as_mut(), width as usize, height as usize);
-    rgba_v.save("tests/output/test_ver.png")?;
+    let plugin_filename = libloading::library_filename(args.plugin);
+    let plugin_file =args.plugin_path.join(plugin_filename);
 
-    mirror_horizontal(rgba_a.as_mut(), width as usize, height as usize);
-    mirror_vertical(rgba_a.as_mut(), width as usize, height as usize);
-    rgba_a.save("tests/output/test_all.png")?;
+    let plugin_lib = Plugin::new(plugin_file)?;
+    let interface = plugin_lib.interface()?;
+    let c_params = CString::new("")?;
 
-    blur_gauss(rgba_bg.as_mut(), width as usize, height as usize);
-    rgba_bg.save("tests/output/test_blur_gauss.png")?;
+    let err =
+        unsafe { (interface.process_image)(width, height, rgba_h.as_mut_ptr(), c_params.as_ptr()) };
 
-    blur_box(rgba_bb.as_mut(), width as usize, height as usize);
-    rgba_bb.save("tests/output/test_blur_box.png")?;
+    // let mut rgba_v = rgba.clone();
+    // let mut rgba_a = rgba.clone();
+    // let mut rgba_bg = rgba.clone();
+    // let mut rgba_bb = rgba.clone();
+
+
+    // mirror_horizontal(rgba_h.as_mut(), width as usize, height as usize);
+    // rgba_h.save("tests/output/test_hor.png")?;
+    //
+    // mirror_vertical(rgba_v.as_mut(), width as usize, height as usize);
+    // rgba_v.save("tests/output/test_ver.png")?;
+    //
+    // mirror_horizontal(rgba_a.as_mut(), width as usize, height as usize);
+    // mirror_vertical(rgba_a.as_mut(), width as usize, height as usize);
+    // rgba_a.save("tests/output/test_all.png")?;
+    //
+    // blur_gauss(rgba_bg.as_mut(), width as usize, height as usize);
+    // rgba_bg.save("tests/output/test_blur_gauss.png")?;
+    //
+    // blur_box(rgba_bb.as_mut(), width as usize, height as usize);
+    rgba_h.save("tests/output/test_invert.png")?;
 
     Ok(())
 }
+
 
 fn mirror_vertical(buf: &mut [u8], width: usize, height: usize) {
     let stride = width * 4;

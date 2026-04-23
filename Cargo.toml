@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["ip"]
+members = ["ip", "blur_plugin", "mirror_plugin"]
 
 [workspace.dependencies]
 anyhow = "1"
