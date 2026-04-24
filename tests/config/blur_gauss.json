@@ -1,0 +1,5 @@
+{
+  "method": "gauss",
+  "radius": 9,
+  "sigma": 3.0
+}

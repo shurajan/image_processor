@@ -47,7 +47,7 @@ pub unsafe extern "C" fn process_image(
         mirror_vertical(rgba_data_slice, width, height);
     }
 
-    0
+    PluginError::Ok as i32
 }
 
 fn mirror_vertical(buf: &mut [u8], width: u32, height: u32) {
