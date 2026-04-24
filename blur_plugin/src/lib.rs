@@ -175,9 +175,112 @@ fn blur_box(buf: &mut [u8], width: usize, height: usize, radius: i32, iterations
 #[cfg(test)]
 mod tests {
     use super::*;
+    use plugin_error::PluginError;
+    use std::ffi::CString;
+
+    fn uniform_rgba(width: usize, height: usize, r: u8, g: u8, b: u8, a: u8) -> Vec<u8> {
+        let mut buf = vec![0u8; width * height * 4];
+        for i in 0..width * height {
+            buf[i * 4] = r;
+            buf[i * 4 + 1] = g;
+            buf[i * 4 + 2] = b;
+            buf[i * 4 + 3] = a;
+        }
+        buf
+    }
 
     #[test]
-    fn it_works() {
-        assert_eq!(4, 4);
+    fn blur_box_uniform_image_stays_uniform() {
+        let (w, h) = (8, 8);
+        let mut buf = uniform_rgba(w, h, 100, 150, 200, 255);
+        blur_box(&mut buf, w, h, 2, 3);
+        for i in 0..w * h {
+            assert_eq!(buf[i * 4], 100, "R changed at pixel {i}");
+            assert_eq!(buf[i * 4 + 1], 150, "G changed at pixel {i}");
+            assert_eq!(buf[i * 4 + 2], 200, "B changed at pixel {i}");
+            assert_eq!(buf[i * 4 + 3], 255, "A changed at pixel {i}");
+        }
+    }
+
+    #[test]
+    fn blur_box_zero_radius_is_identity() {
+        let (w, h) = (4, 4);
+        let mut buf = uniform_rgba(w, h, 10, 20, 30, 40);
+        buf[0] = 255;
+        let original = buf.clone();
+        blur_box(&mut buf, w, h, 0, 1);
+        assert_eq!(buf, original);
+    }
+
+    #[test]
+    fn blur_gauss_uniform_image_stays_uniform() {
+        let (w, h) = (8, 8);
+        let mut buf = uniform_rgba(w, h, 128, 64, 32, 255);
+        blur_gauss(&mut buf, w, h, 3, 1.5);
+        for i in 0..w * h {
+            // allow ±1 for floating-point rounding
+            assert!((buf[i * 4] as i32 - 128).abs() <= 1, "R at {i}");
+            assert!((buf[i * 4 + 1] as i32 - 64).abs() <= 1, "G at {i}");
+            assert!((buf[i * 4 + 2] as i32 - 32).abs() <= 1, "B at {i}");
+            assert_eq!(buf[i * 4 + 3], 255, "A changed at pixel {i}");
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid RGBA buffer size")]
+    fn blur_box_wrong_buffer_size_panics() {
+        let mut buf = vec![0u8; 10];
+        blur_box(&mut buf, 4, 4, 1, 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid RGBA buffer size")]
+    fn blur_gauss_wrong_buffer_size_panics() {
+        let mut buf = vec![0u8; 10];
+        blur_gauss(&mut buf, 4, 4, 1, 1.0);
+    }
+
+    #[test]
+    fn process_image_box_params_returns_ok() {
+        let (w, h) = (4u32, 4u32);
+        let mut buf = uniform_rgba(w as usize, h as usize, 128, 128, 128, 255);
+        let params = CString::new(r#"{"method":"box","radius":1,"iterations":2}"#).unwrap();
+        let ret = unsafe { process_image(w, h, buf.as_mut_ptr(), params.as_ptr()) };
+        assert_eq!(ret, PluginError::Ok as i32);
+    }
+
+    #[test]
+    fn process_image_gauss_params_returns_ok() {
+        let (w, h) = (4u32, 4u32);
+        let mut buf = uniform_rgba(w as usize, h as usize, 128, 128, 128, 255);
+        let params = CString::new(r#"{"method":"gauss","radius":2,"sigma":1.0}"#).unwrap();
+        let ret = unsafe { process_image(w, h, buf.as_mut_ptr(), params.as_ptr()) };
+        assert_eq!(ret, PluginError::Ok as i32);
+    }
+
+    #[test]
+    fn process_image_null_params_returns_invalid_params() {
+        let (w, h) = (2u32, 2u32);
+        let mut buf = vec![0u8; (w * h * 4) as usize];
+        let ret = unsafe { process_image(w, h, buf.as_mut_ptr(), std::ptr::null()) };
+        assert_eq!(ret, PluginError::InvalidParams as i32);
+    }
+
+    #[test]
+    fn process_image_invalid_json_returns_invalid_params() {
+        let (w, h) = (2u32, 2u32);
+        let mut buf = vec![0u8; (w * h * 4) as usize];
+        let params = CString::new("not valid json").unwrap();
+        let ret = unsafe { process_image(w, h, buf.as_mut_ptr(), params.as_ptr()) };
+        assert_eq!(ret, PluginError::InvalidParams as i32);
+    }
+
+    #[test]
+    fn process_image_unknown_method_returns_invalid_params() {
+        let (w, h) = (2u32, 2u32);
+        let mut buf = vec![0u8; (w * h * 4) as usize];
+        let params = CString::new(r#"{"method":"unknown","radius":1}"#).unwrap();
+        let ret = unsafe { process_image(w, h, buf.as_mut_ptr(), params.as_ptr()) };
+        assert_eq!(ret, PluginError::InvalidParams as i32);
     }
 }

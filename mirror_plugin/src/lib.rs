@@ -91,9 +91,129 @@ fn mirror_horizontal(buf: &mut [u8], width: usize, height: usize) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use plugin_error::PluginError;
+    use std::ffi::CString;
+
+    fn pixel(r: u8, g: u8, b: u8, a: u8) -> [u8; 4] {
+        [r, g, b, a]
+    }
+
+    fn make_buf(pixels: &[[u8; 4]]) -> Vec<u8> {
+        pixels.iter().flat_map(|p| p.iter().copied()).collect()
+    }
+
+    // 2×1 image [RED | BLUE] → after horizontal mirror → [BLUE | RED]
+    #[test]
+    fn mirror_horizontal_swaps_pixels_in_row() {
+        let red = pixel(255, 0, 0, 255);
+        let blue = pixel(0, 0, 255, 255);
+        let mut buf = make_buf(&[red, blue]);
+        mirror_horizontal(&mut buf, 2, 1);
+        assert_eq!(&buf[0..4], &blue, "first pixel should be blue");
+        assert_eq!(&buf[4..8], &red, "second pixel should be red");
+    }
+
+    // 1×2 image [RED / BLUE] → after vertical mirror → [BLUE / RED]
+    #[test]
+    fn mirror_vertical_swaps_rows() {
+        let red = pixel(255, 0, 0, 255);
+        let blue = pixel(0, 0, 255, 255);
+        let mut buf = make_buf(&[red, blue]);
+        mirror_vertical(&mut buf, 1, 2);
+        assert_eq!(&buf[0..4], &blue, "top pixel should be blue");
+        assert_eq!(&buf[4..8], &red, "bottom pixel should be red");
+    }
+
+    // 2×2: [TL TR / BL BR] → h-mirror → [TR TL / BR BL] → v-mirror → [BR BL / TR TL]
+    #[test]
+    fn mirror_both_axes_2x2() {
+        let tl = pixel(1, 0, 0, 255);
+        let tr = pixel(2, 0, 0, 255);
+        let bl = pixel(3, 0, 0, 255);
+        let br = pixel(4, 0, 0, 255);
+        let mut buf = make_buf(&[tl, tr, bl, br]);
+        mirror_horizontal(&mut buf, 2, 2);
+        mirror_vertical(&mut buf, 2, 2);
+        assert_eq!(&buf[0..4], &br, "top-left should be BR");
+        assert_eq!(&buf[4..8], &bl, "top-right should be BL");
+        assert_eq!(&buf[8..12], &tr, "bottom-left should be TR");
+        assert_eq!(&buf[12..16], &tl, "bottom-right should be TL");
+    }
 
     #[test]
-    fn it_works() {
-        assert_eq!(4, 4);
+    fn mirror_horizontal_twice_is_identity() {
+        let orig = make_buf(&[pixel(1, 2, 3, 4), pixel(5, 6, 7, 8), pixel(9, 10, 11, 12)]);
+        let mut buf = orig.clone();
+        mirror_horizontal(&mut buf, 3, 1);
+        mirror_horizontal(&mut buf, 3, 1);
+        assert_eq!(buf, orig);
+    }
+
+    #[test]
+    fn mirror_vertical_twice_is_identity() {
+        let orig = make_buf(&[pixel(1, 2, 3, 4), pixel(5, 6, 7, 8)]);
+        let mut buf = orig.clone();
+        mirror_vertical(&mut buf, 1, 2);
+        mirror_vertical(&mut buf, 1, 2);
+        assert_eq!(buf, orig);
+    }
+
+    #[test]
+    fn mirror_horizontal_uniform_unchanged() {
+        let mut buf = vec![128u8; 4 * 4 * 4];
+        let original = buf.clone();
+        mirror_horizontal(&mut buf, 4, 4);
+        assert_eq!(buf, original);
+    }
+
+    #[test]
+    fn process_image_null_params_returns_invalid_params() {
+        let (w, h) = (2u32, 2u32);
+        let mut buf = vec![0u8; (w * h * 4) as usize];
+        let ret = unsafe { process_image(w, h, buf.as_mut_ptr(), std::ptr::null()) };
+        assert_eq!(ret, PluginError::InvalidParams as i32);
+    }
+
+    #[test]
+    fn process_image_invalid_json_returns_invalid_params() {
+        let (w, h) = (2u32, 2u32);
+        let mut buf = vec![0u8; (w * h * 4) as usize];
+        let params = CString::new("not valid json").unwrap();
+        let ret = unsafe { process_image(w, h, buf.as_mut_ptr(), params.as_ptr()) };
+        assert_eq!(ret, PluginError::InvalidParams as i32);
+    }
+
+    #[test]
+    fn process_image_horizontal_mirror_returns_ok() {
+        let (w, h) = (2u32, 1u32);
+        let mut buf = make_buf(&[pixel(255, 0, 0, 255), pixel(0, 0, 255, 255)]);
+        let params = CString::new(r#"{"horizontal":true,"vertical":false}"#).unwrap();
+        let ret = unsafe { process_image(w, h, buf.as_mut_ptr(), params.as_ptr()) };
+        assert_eq!(ret, PluginError::Ok as i32);
+        // pixels should be swapped
+        assert_eq!(&buf[0..4], &pixel(0, 0, 255, 255));
+        assert_eq!(&buf[4..8], &pixel(255, 0, 0, 255));
+    }
+
+    #[test]
+    fn process_image_vertical_mirror_returns_ok() {
+        let (w, h) = (1u32, 2u32);
+        let mut buf = make_buf(&[pixel(255, 0, 0, 255), pixel(0, 0, 255, 255)]);
+        let params = CString::new(r#"{"horizontal":false,"vertical":true}"#).unwrap();
+        let ret = unsafe { process_image(w, h, buf.as_mut_ptr(), params.as_ptr()) };
+        assert_eq!(ret, PluginError::Ok as i32);
+        assert_eq!(&buf[0..4], &pixel(0, 0, 255, 255));
+        assert_eq!(&buf[4..8], &pixel(255, 0, 0, 255));
+    }
+
+    #[test]
+    fn process_image_no_mirror_returns_ok_and_unchanged() {
+        let (w, h) = (2u32, 2u32);
+        let mut buf = vec![128u8; (w * h * 4) as usize];
+        let original = buf.clone();
+        let params = CString::new(r#"{"horizontal":false,"vertical":false}"#).unwrap();
+        let ret = unsafe { process_image(w, h, buf.as_mut_ptr(), params.as_ptr()) };
+        assert_eq!(ret, PluginError::Ok as i32);
+        assert_eq!(buf, original);
     }
 }
