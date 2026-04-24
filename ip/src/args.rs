@@ -6,7 +6,7 @@ use std::path::PathBuf;
 #[command(
     name = "ip",
     version = "0.1.0",
-    about = "Reads an input RGB file and ang converts it with plugin",
+    about = "Reads an input RGB file and converts it with plugin",
     long_about = None,
     arg_required_else_help = true
 )]

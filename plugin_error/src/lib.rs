@@ -34,6 +34,7 @@ impl From<i32> for PluginError {
         match code {
             0 => PluginError::Ok,
             1 => PluginError::InvalidSize,
+            2 => PluginError::UnknownError,
             3 => PluginError::InvalidParams,
             _ => PluginError::UnknownError,
         }
@@ -64,12 +65,12 @@ mod tests {
     fn from_i32_known_codes() {
         assert_eq!(PluginError::from(0), PluginError::Ok);
         assert_eq!(PluginError::from(1), PluginError::InvalidSize);
+        assert_eq!(PluginError::from(2), PluginError::UnknownError);
         assert_eq!(PluginError::from(3), PluginError::InvalidParams);
     }
 
     #[test]
     fn from_i32_unknown_codes_map_to_unknown_error() {
-        assert_eq!(PluginError::from(2), PluginError::UnknownError);
         assert_eq!(PluginError::from(-1), PluginError::UnknownError);
         assert_eq!(PluginError::from(99), PluginError::UnknownError);
     }

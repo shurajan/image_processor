@@ -8,15 +8,15 @@ const PIXEL_BYTES: usize = 4;
 #[derive(Deserialize)]
 #[serde(tag = "method", rename_all = "lowercase")]
 enum BlurParams {
-    Box { radius: i32, iterations: usize },
-    Gauss { radius: i32, sigma: f32 },
+    Box { radius: u8, iterations: usize },
+    Gauss { radius: u8, sigma: f32 },
 }
 
 /// Applies a blur effect to an RGBA8 image buffer in-place.
 ///
 /// `params` must be a null-terminated JSON string in one of these forms:
-/// - `{"method":"box","radius":<i32>,"iterations":<usize>}`
-/// - `{"method":"gauss","radius":<i32>,"sigma":<f32>}`
+/// - `{"method":"box","radius":<u8>,"iterations":<usize>}`
+/// - `{"method":"gauss","radius":<u8>,"sigma":<f32>}`
 ///
 /// Returns a [`PluginError`] code cast to `i32` (`0` on success).
 #[unsafe(no_mangle)]
@@ -76,18 +76,18 @@ pub unsafe extern "C" fn process_image(
     result.unwrap_or(PluginError::UnknownError as i32)
 }
 
-fn blur_gauss(buf: &mut [u8], width: usize, height: usize, radius: i32, sigma: f32) {
+fn blur_gauss(buf: &mut [u8], width: usize, height: usize, radius: u8, sigma: f32) {
     assert_eq!(
         buf.len(),
         width * PIXEL_BYTES * height,
         "invalid RGBA buffer size"
     );
 
-    let kernel_size = (2 * radius + 1) as usize;
+    let kernel_size = 2 * radius as usize + 1;
     let mut kernel = vec![0f32; kernel_size];
     let mut sum = 0f32;
     for i in 0..kernel_size {
-        let x = i as i32 - radius;
+        let x = i as i32 - radius as i32;
         let v = (-(x * x) as f32 / (2.0 * sigma * sigma)).exp();
         kernel[i] = v;
         sum += v;
@@ -103,7 +103,7 @@ fn blur_gauss(buf: &mut [u8], width: usize, height: usize, radius: i32, sigma: f
         for x in 0..width {
             let (mut r, mut g, mut b, mut a) = (0f32, 0f32, 0f32, 0f32);
             for (ki, &w) in kernel.iter().enumerate() {
-                let sx = (x as i32 + ki as i32 - radius).clamp(0, width as i32 - 1) as usize;
+                let sx = (x as i32 + ki as i32 - radius as i32).clamp(0, width as i32 - 1) as usize;
                 let idx = (y * width + sx) * 4;
                 r += buf[idx] as f32 * w;
                 g += buf[idx + 1] as f32 * w;
@@ -123,7 +123,8 @@ fn blur_gauss(buf: &mut [u8], width: usize, height: usize, radius: i32, sigma: f
         for x in 0..width {
             let (mut r, mut g, mut b, mut a) = (0f32, 0f32, 0f32, 0f32);
             for (ki, &w) in kernel.iter().enumerate() {
-                let sy = (y as i32 + ki as i32 - radius).clamp(0, height as i32 - 1) as usize;
+                let sy =
+                    (y as i32 + ki as i32 - radius as i32).clamp(0, height as i32 - 1) as usize;
                 let idx = (sy * width + x) * 4;
                 r += temp[idx] as f32 * w;
                 g += temp[idx + 1] as f32 * w;
@@ -139,10 +140,10 @@ fn blur_gauss(buf: &mut [u8], width: usize, height: usize, radius: i32, sigma: f
     }
 }
 
-fn blur_box(buf: &mut [u8], width: usize, height: usize, radius: i32, iterations: usize) {
+fn blur_box(buf: &mut [u8], width: usize, height: usize, radius: u8, iterations: usize) {
     assert_eq!(buf.len(), width * 4 * height, "invalid RGBA buffer size");
 
-    let kernel_size = (2 * radius + 1) as usize;
+    let kernel_size = 2 * radius as usize + 1;
     let w = 1.0f32 / kernel_size as f32;
 
     let mut temp = vec![0u8; buf.len()];
@@ -153,7 +154,8 @@ fn blur_box(buf: &mut [u8], width: usize, height: usize, radius: i32, iterations
             for x in 0..width {
                 let (mut r, mut g, mut b, mut a) = (0f32, 0f32, 0f32, 0f32);
                 for ki in 0..kernel_size {
-                    let sx = (x as i32 + ki as i32 - radius).clamp(0, width as i32 - 1) as usize;
+                    let sx =
+                        (x as i32 + ki as i32 - radius as i32).clamp(0, width as i32 - 1) as usize;
                     let idx = (y * width + sx) * 4;
                     r += buf[idx] as f32;
                     g += buf[idx + 1] as f32;
@@ -173,7 +175,8 @@ fn blur_box(buf: &mut [u8], width: usize, height: usize, radius: i32, iterations
             for x in 0..width {
                 let (mut r, mut g, mut b, mut a) = (0f32, 0f32, 0f32, 0f32);
                 for ki in 0..kernel_size {
-                    let sy = (y as i32 + ki as i32 - radius).clamp(0, height as i32 - 1) as usize;
+                    let sy =
+                        (y as i32 + ki as i32 - radius as i32).clamp(0, height as i32 - 1) as usize;
                     let idx = (sy * width + x) * 4;
                     r += temp[idx] as f32;
                     g += temp[idx + 1] as f32;
@@ -289,6 +292,20 @@ mod tests {
         let (w, h) = (2u32, 2u32);
         let mut buf = vec![0u8; (w * h * 4) as usize];
         let params = CString::new("not valid json").unwrap();
+        let ret = unsafe { process_image(w, h, buf.as_mut_ptr(), params.as_ptr()) };
+        assert_eq!(ret, PluginError::InvalidParams as i32);
+    }
+
+    #[test]
+    fn process_image_negative_radius_returns_invalid_params() {
+        let (w, h) = (2u32, 2u32);
+        let mut buf = uniform_rgba(w as usize, h as usize, 0, 0, 0, 255);
+
+        let params = CString::new(r#"{"method":"box","radius":-1,"iterations":1}"#).unwrap();
+        let ret = unsafe { process_image(w, h, buf.as_mut_ptr(), params.as_ptr()) };
+        assert_eq!(ret, PluginError::InvalidParams as i32);
+
+        let params = CString::new(r#"{"method":"gauss","radius":-1,"sigma":1.0}"#).unwrap();
         let ret = unsafe { process_image(w, h, buf.as_mut_ptr(), params.as_ptr()) };
         assert_eq!(ret, PluginError::InvalidParams as i32);
     }
