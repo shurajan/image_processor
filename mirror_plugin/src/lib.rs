@@ -1,6 +1,7 @@
 use plugin_error::PluginError;
 use serde::Deserialize;
 use std::ffi::{CStr, c_char, c_uchar};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 
 const PIXEL_BYTES: u32 = 4;
 
@@ -40,14 +41,17 @@ pub unsafe extern "C" fn process_image(
     // SAFETY: rgba_data must have at least data_size bytes
     let rgba_data_slice = unsafe { std::slice::from_raw_parts_mut(rgba_data, data_size) };
 
-    if mirror_params.horizontal {
-        mirror_horizontal(rgba_data_slice, width as usize, height as usize);
-    }
-    if mirror_params.vertical {
-        mirror_vertical(rgba_data_slice, width, height);
-    }
+    let result = catch_unwind(AssertUnwindSafe(move || {
+        if mirror_params.horizontal {
+            mirror_horizontal(rgba_data_slice, width as usize, height as usize);
+        }
+        if mirror_params.vertical {
+            mirror_vertical(rgba_data_slice, width, height);
+        }
+        PluginError::Ok as i32
+    }));
 
-    PluginError::Ok as i32
+    result.unwrap_or(PluginError::UnknownError as i32)
 }
 
 fn mirror_vertical(buf: &mut [u8], width: u32, height: u32) {

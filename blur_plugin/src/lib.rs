@@ -1,6 +1,7 @@
 use plugin_error::PluginError;
 use serde::Deserialize;
 use std::ffi::{CStr, c_char, c_uchar};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 
 const PIXEL_BYTES: usize = 4;
 
@@ -41,16 +42,19 @@ pub unsafe extern "C" fn process_image(
     // SAFETY: rgba_data must have at least data_size bytes
     let rgba_data_slice = unsafe { std::slice::from_raw_parts_mut(rgba_data, data_size) };
 
-    match blur_params {
-        BlurParams::Box { radius, iterations } => {
-            blur_box(rgba_data_slice, width as usize, height as usize, radius, iterations);
+    let result = catch_unwind(AssertUnwindSafe(move || {
+        match blur_params {
+            BlurParams::Box { radius, iterations } => {
+                blur_box(rgba_data_slice, width as usize, height as usize, radius, iterations);
+            }
+            BlurParams::Gauss { radius, sigma } => {
+                blur_gauss(rgba_data_slice, width as usize, height as usize, radius, sigma);
+            }
         }
-        BlurParams::Gauss { radius, sigma } => {
-            blur_gauss(rgba_data_slice, width as usize, height as usize, radius, sigma);
-        }
-    }
+        PluginError::Ok as i32
+    }));
 
-    PluginError::Ok as i32
+    result.unwrap_or(PluginError::UnknownError as i32)
 }
 
 fn blur_gauss(buf: &mut [u8], width: usize, height: usize, radius: i32, sigma: f32) {
