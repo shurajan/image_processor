@@ -75,11 +75,17 @@ int32_t process_image(uint32_t width, uint32_t height,
 - Return value — `PluginError` code: `0` = success, `1` = invalid size,
   `2` = unknown error, `3` = invalid params.
 
-## Running tests
+## Running unit tests
 
 ```bash
-cargo test
+cargo test --lib --bins
 ```
 
+## Running integration tests
 Integration tests live in `ip/tests/integration.rs` and require the plugins to
-be built beforehand (`cargo build`).
+be built beforehand.
+
+```bash
+cargo build
+cargo test --test integration
+```
