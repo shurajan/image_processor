@@ -1,21 +1,21 @@
 use plugin_error::PluginError;
-use std::ffi::{c_char, c_uchar};
-
-// void process_image(
-//      uint32_t width,
-//      uint32_t height,
-//      uint8_t* rgba_data,
-//      const char* params
-// );
+use serde::Deserialize;
+use std::ffi::{CStr, c_char, c_uchar};
 
 const PIXEL_BYTES: u32 = 4;
+
+#[derive(Deserialize)]
+struct MirrorParams {
+    horizontal: bool,
+    vertical: bool,
+}
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn process_image(
     width: u32,
     height: u32,
     rgba_data: *mut c_uchar,
-    _params: *const c_char,
+    params: *const c_char,
 ) -> i32 {
     let Some(data_size) = (width as usize)
         .checked_mul(height as usize)
@@ -24,10 +24,29 @@ pub unsafe extern "C" fn process_image(
         return PluginError::InvalidSize as i32;
     };
 
+    if params.is_null() {
+        return PluginError::InvalidParams as i32;
+    }
+
+    // SAFETY: caller must provide a valid null-terminated UTF-8 string
+    let params_str = unsafe { CStr::from_ptr(params) };
+    let Ok(params_str) = params_str.to_str() else {
+        return PluginError::InvalidParams as i32;
+    };
+    let Ok(mirror_params) = serde_json::from_str::<MirrorParams>(params_str) else {
+        return PluginError::InvalidParams as i32;
+    };
+
     // SAFETY: rgba_data must have at least data_size bytes
     let rgba_data_slice = unsafe { std::slice::from_raw_parts_mut(rgba_data, data_size) };
-    mirror_horizontal(rgba_data_slice, width as usize, height as usize);
-    mirror_vertical(rgba_data_slice, width, height);
+
+    if mirror_params.horizontal {
+        mirror_horizontal(rgba_data_slice, width as usize, height as usize);
+    }
+    if mirror_params.vertical {
+        mirror_vertical(rgba_data_slice, width, height);
+    }
+
     0
 }
 

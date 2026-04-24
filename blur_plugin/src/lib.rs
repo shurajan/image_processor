@@ -1,13 +1,5 @@
 use plugin_error::PluginError;
 use std::ffi::{c_char, c_uchar};
-
-// void process_image(
-//      uint32_t width,
-//      uint32_t height,
-//      uint8_t* rgba_data,
-//      const char* params
-// );
-
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn process_image(
     width: u32,
