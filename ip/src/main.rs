@@ -1,15 +1,16 @@
+mod args;
 mod error;
 mod plugin;
-mod args;
 
-use crate::error::AppError;
 use crate::args::parse_args;
+use crate::error::AppError;
 use crate::plugin::Plugin;
 use plugin_error::PluginError;
 use std::ffi::CString;
 use std::fs;
 use std::process::ExitCode;
 
+/// Entry point: runs the tool and maps errors to appropriate exit codes.
 fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
@@ -25,6 +26,7 @@ fn main() -> ExitCode {
     }
 }
 
+/// Parses arguments, loads the plugin, processes the image in-place, and saves the result.
 fn run() -> Result<(), AppError> {
     let args = parse_args()?;
 

@@ -1,11 +1,16 @@
 use std::fmt;
 
+/// Error codes returned by image-processing plugins across the C FFI boundary.
 #[repr(i32)]
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum PluginError {
+    /// Processing completed successfully.
     Ok = 0,
+    /// The supplied image dimensions are invalid or would overflow.
     InvalidSize = 1,
+    /// An unexpected error occurred inside the plugin.
     UnknownError = 2,
+    /// The JSON parameter string is missing, malformed, or contains unknown fields.
     InvalidParams = 3,
 }
 
@@ -22,6 +27,8 @@ impl fmt::Display for PluginError {
 
 impl std::error::Error for PluginError {}
 
+/// Converts a raw integer plugin return code into a `PluginError`.
+/// Any unrecognized code maps to [`PluginError::UnknownError`].
 impl From<i32> for PluginError {
     fn from(code: i32) -> Self {
         match code {

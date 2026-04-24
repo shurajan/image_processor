@@ -1,6 +1,6 @@
-use std::path::PathBuf;
-use clap::Parser;
 use crate::error::AppError;
+use clap::Parser;
+use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -11,6 +11,7 @@ use crate::error::AppError;
     arg_required_else_help = true
 )]
 
+/// Validated command-line arguments for the `ip` tool.
 pub struct Args {
     /// Input file path
     #[arg(short = 'i', long, value_name = "FILE")]
@@ -33,6 +34,7 @@ pub struct Args {
     pub plugin_path: PathBuf,
 }
 
+/// Parses and validates command-line arguments, returning an error if any required paths are invalid.
 pub(crate) fn parse_args() -> Result<Args, AppError> {
     let args = Args::try_parse().map_err(AppError::ArgumentParsing)?;
 

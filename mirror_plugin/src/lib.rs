@@ -11,6 +11,12 @@ struct MirrorParams {
     vertical: bool,
 }
 
+/// Mirrors an RGBA8 image buffer in-place along one or both axes.
+///
+/// `params` must be a null-terminated JSON string:
+/// `{"horizontal":<bool>,"vertical":<bool>}`
+///
+/// Returns a [`PluginError`] code cast to `i32` (`0` on success).
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn process_image(
     width: u32,

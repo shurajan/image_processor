@@ -12,6 +12,13 @@ enum BlurParams {
     Gauss { radius: i32, sigma: f32 },
 }
 
+/// Applies a blur effect to an RGBA8 image buffer in-place.
+///
+/// `params` must be a null-terminated JSON string in one of these forms:
+/// - `{"method":"box","radius":<i32>,"iterations":<usize>}`
+/// - `{"method":"gauss","radius":<i32>,"sigma":<f32>}`
+///
+/// Returns a [`PluginError`] code cast to `i32` (`0` on success).
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn process_image(
     width: u32,
@@ -45,10 +52,22 @@ pub unsafe extern "C" fn process_image(
     let result = catch_unwind(AssertUnwindSafe(move || {
         match blur_params {
             BlurParams::Box { radius, iterations } => {
-                blur_box(rgba_data_slice, width as usize, height as usize, radius, iterations);
+                blur_box(
+                    rgba_data_slice,
+                    width as usize,
+                    height as usize,
+                    radius,
+                    iterations,
+                );
             }
             BlurParams::Gauss { radius, sigma } => {
-                blur_gauss(rgba_data_slice, width as usize, height as usize, radius, sigma);
+                blur_gauss(
+                    rgba_data_slice,
+                    width as usize,
+                    height as usize,
+                    radius,
+                    sigma,
+                );
             }
         }
         PluginError::Ok as i32
@@ -154,8 +173,7 @@ fn blur_box(buf: &mut [u8], width: usize, height: usize, radius: i32, iterations
             for x in 0..width {
                 let (mut r, mut g, mut b, mut a) = (0f32, 0f32, 0f32, 0f32);
                 for ki in 0..kernel_size {
-                    let sy =
-                        (y as i32 + ki as i32 - radius).clamp(0, height as i32 - 1) as usize;
+                    let sy = (y as i32 + ki as i32 - radius).clamp(0, height as i32 - 1) as usize;
                     let idx = (sy * width + x) * 4;
                     r += temp[idx] as f32;
                     g += temp[idx + 1] as f32;
