@@ -8,3 +8,4 @@ name = "blur"
 crate-type = ["cdylib"]
 
 [dependencies]
+plugin_error.workspace = true

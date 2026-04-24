@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["ip", "blur_plugin", "mirror_plugin"]
+members = ["ip", "blur_plugin", "mirror_plugin", "plugin_error"]
 
 [workspace.dependencies]
 anyhow = "1"
@@ -9,3 +9,4 @@ image = "0.25"
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+plugin_error = { path = "./plugin_error" }

@@ -1,4 +1,5 @@
-use std::ffi::{c_char, c_int, c_uchar};
+use plugin_error::PluginError;
+use std::ffi::{c_char, c_uchar};
 
 // void process_image(
 //      uint32_t width,
@@ -12,13 +13,13 @@ pub unsafe extern "C" fn process_image(
     width: u32,
     height: u32,
     rgba_data: *mut c_uchar,
-    params: *const c_char,
+    _params: *const c_char,
 ) -> i32 {
     let Some(data_size) = (width as usize)
         .checked_mul(height as usize)
         .and_then(|res| res.checked_mul(PIXEL_BYTES as usize))
     else {
-        return 1;
+        return PluginError::InvalidSize as i32;
     };
 
     // SAFETY: rgba_data must have at least data_size bytes
@@ -28,11 +29,14 @@ pub unsafe extern "C" fn process_image(
 }
 
 const PIXEL_BYTES: usize = 4;
+#[allow(dead_code)]
 const BLUR_RADIUS: i32 = 9;
+#[allow(dead_code)]
 const BLUR_SIGMA: f32 = 3.0;
 const BOX_BLUR_RADIUS: i32 = 9;
 const BOX_BLUR_ITERATIONS: usize = 3;
 
+#[allow(dead_code)]
 fn blur_gauss(buf: &mut [u8], width: usize, height: usize) {
     assert_eq!(
         buf.len(),
@@ -151,8 +155,6 @@ fn blur_box(buf: &mut [u8], width: usize, height: usize) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn it_works() {
         assert_eq!(4, 4);

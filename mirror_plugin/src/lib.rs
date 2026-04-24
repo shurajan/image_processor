@@ -1,4 +1,5 @@
-use std::ffi::{c_char, c_int, c_uchar};
+use plugin_error::PluginError;
+use std::ffi::{c_char, c_uchar};
 
 // void process_image(
 //      uint32_t width,
@@ -14,13 +15,13 @@ pub unsafe extern "C" fn process_image(
     width: u32,
     height: u32,
     rgba_data: *mut c_uchar,
-    params: *const c_char,
+    _params: *const c_char,
 ) -> i32 {
     let Some(data_size) = (width as usize)
         .checked_mul(height as usize)
         .and_then(|res| res.checked_mul(PIXEL_BYTES as usize))
     else {
-        return 1;
+        return PluginError::InvalidSize as i32;
     };
 
     // SAFETY: rgba_data must have at least data_size bytes
@@ -57,9 +58,9 @@ fn mirror_horizontal(buf: &mut [u8], width: usize, height: usize) {
             let a = x * 4;
             let b = (width - 1 - x) * 4;
             line.swap(a, b);
-            line.swap((a + 1), (b + 1));
-            line.swap((a + 2), (b + 2));
-            line.swap((a + 3), (b + 3));
+            line.swap(a + 1, b + 1);
+            line.swap(a + 2, b + 2);
+            line.swap(a + 3, b + 3);
         }
     }
 }
